@@ -24,7 +24,7 @@ namespace Rainmeter
 
         static public implicit operator API(IntPtr rm)
         {
-            return new Rainmeter.API(rm);
+            return new API(rm);
         }
 
         [DllImport("Rainmeter.dll", CharSet = CharSet.Unicode)]
