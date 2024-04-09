@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using Rainmeter;
@@ -26,6 +25,7 @@ namespace PluginEmpty
         public int port { get; set; } = 9000;
         public string Data { get; set; }
         public string FilesPath { get; set; } = Path.GetTempPath();
+        public string FilterExpression { get; set; }
     }
 
     public class Plugin
@@ -82,8 +82,10 @@ namespace PluginEmpty
             measure.Data = new string(outString).Trim();
 
             measure.FilesPath = api.ReadPath("FilesPath", Path.GetTempPath());
-            api.Log(API.LogType.Notice, $"FilesPath: {measure.FilesPath}");
+            //api.Log(API.LogType.Notice, $"FilesPath: {measure.FilesPath}");
             Directory.CreateDirectory(measure.FilesPath);
+
+            measure.FilterExpression = api.ReadString("FilterExpression", "");
 
             //Read measure for an Input string
             measure.port = api.ReadInt("Port", 9000);
@@ -109,10 +111,7 @@ namespace PluginEmpty
                 }
                 catch (Exception e)
                 {
-                    _api.Log(
-                        API.LogType.Error,
-                        $"Error starting incoming webhook server: {e.Message}"
-                    );
+                    _api.Log(API.LogType.Error, $"Error starting incoming webhook server: {e}");
                 }
             }
         }

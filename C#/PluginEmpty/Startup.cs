@@ -1,12 +1,13 @@
-﻿using HttpMultipartParser;
-using Microsoft.Owin;
-using Owin;
-using Rainmeter;
-using System;
+﻿using System;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using HttpMultipartParser;
+using Microsoft.Owin;
+using Newtonsoft.Json.Linq;
+using Owin;
+using Rainmeter;
 
 [assembly: OwinStartup(typeof(PluginEmpty.Startup))]
 
@@ -38,7 +39,7 @@ namespace PluginEmpty
         {
             app.Run(context =>
             {
-                Plugin._api.Log(Rainmeter.API.LogType.Debug, "Received reqeust on webhook");
+                Plugin._api.Log(API.LogType.Debug, "Received reqeust on webhook");
 
                 string text = "";
 
@@ -46,6 +47,7 @@ namespace PluginEmpty
                 {
                     if (context.Request.ContentType.Contains("multipart/form-data;"))
                     {
+                        Plugin._api.Log(API.LogType.Debug, "Webhook has form data");
                         // TODO: CONFIGURABLE
                         var parser = MultipartFormDataParser.Parse(context.Request.Body);
 
@@ -57,14 +59,11 @@ namespace PluginEmpty
                         }
                         text += "},\"files\":[";
 
+                        // TODO: SKIP DOWNLOAD IF DATA SHOULD BE FILTERED OUT
                         foreach (var file in parser.Files)
                         {
                             string filename = Path.Combine(Plugin.measure.FilesPath, file.FileName);
-                            Plugin._api.LogF(
-                                API.LogType.Debug,
-                                "Saving file to: {0}",
-                                filename
-                            );
+                            Plugin._api.LogF(API.LogType.Debug, "Saving file to: {0}", filename);
                             using (var fileStream = File.Create(filename))
                             {
                                 file.Data.CopyTo(fileStream);
@@ -81,20 +80,29 @@ namespace PluginEmpty
                         text = reader.ReadToEnd();
                     }
 
+                    Plugin._api.LogF(API.LogType.Debug, "Received reqeust on webhook: {0}", text);
+
+                    if (!string.IsNullOrWhiteSpace(Plugin.measure.FilterExpression))
+                    {
+                        Plugin._api.Log(API.LogType.Debug, $"Applying filter expression: {Plugin.measure.FilterExpression}");
+
+                        JObject json = JObject.Parse(text);
+                        if (json.SelectToken(Plugin.measure.FilterExpression) == null)
+                        {
+                            Plugin._api.Log(API.LogType.Debug, "Filter expression did not match, skipping");
+                            return context.Response.WriteAsync("Hello, world. Skipped.");
+                        }
+                    }
+                    else
+                    {
+                        Plugin._api.Log(API.LogType.Debug, "No filter expression configured");
+                    }
+
                     Plugin.UpdateData(text);
-                    Plugin._api.LogF(
-                        Rainmeter.API.LogType.Debug,
-                        "Received reqeust on webhook: {0}",
-                        text
-                    );
                 }
                 catch (Exception e)
                 {
-                    Plugin._api.LogF(
-                        Rainmeter.API.LogType.Error,
-                        "Error on webhook: {0}",
-                        e.Message
-                    );
+                    Plugin._api.LogF(API.LogType.Error, "Error on webhook: {0}", e.ToString());
                 }
 
                 context.Response.ContentType = "text/plain";
